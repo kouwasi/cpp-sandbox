@@ -4,30 +4,44 @@
 #include <sys/shm.h>
 #include <unistd.h>
 
-int main() {
-    key_t key = ftok("shm.dat", 0);
-    int shmid = shmget(key, sizeof(int), IPC_CREAT);
+using namespace std;
 
-    if (shmid == EOF) {
-        std::cerr << "Could not allocate shared memory" << std::endl;
-        exit(0);
+int main() {
+    const key_t key = ftok("./shm.dat", 50);
+
+    if (key == -1) {
+        cerr << "key error" << endl;
+        return EXIT_FAILURE;
     }
 
+    const int shmid = shmget(key, sizeof(int), IPC_CREAT|0666);
+
+    if (shmid == -1) {
+        cerr << "Allocation failed." << endl;
+        return EXIT_FAILURE;
+    }
+
+    cout << "shmid: " << shmid << endl;
+
     // 共有メモリにアタッチ
-    int *shmaddr = shmat(shmid, NULL, 0);
+    int *shm = (int *)shmat(shmid, 0, 0);
+
+    if (shm == (int *)-1) {
+        return EXIT_FAILURE;
+    }
 
     int i;
     for ( i = 0; i < 10; i++ ) {
-        shm = i;
-        std::cout << i << std::endl;
+        *shm = i;
+        cout << *shm << endl;
         sleep(1);
     }
 
-    // デタッチ
-    if (shmdt(&shm) == EOF) {
-        std::cerr << "Could not detach" << std::endl;
-        exit(0);
-    }
+    // プロセスからデタッチ
+    shmdt(shm);
+
+    // メモリ解放
+    shmctl(shmid, IPC_RMID, NULL);
 
     return 0;
 }
